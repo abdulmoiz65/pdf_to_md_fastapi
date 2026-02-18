@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF to Markdown Converter</title>
+    <meta name="description"
+        content="Convert any PDF to clean, structured Markdown. Extracts text, images, tables, metadata, and more.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body>
+    <!-- Animated Background -->
+    <div class="bg-orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <span class="logo-icon">&#128196;</span>
+                <h1>PDF <span class="accent">&rarr;</span> Markdown</h1>
+            </div>
+            <p class="tagline">Extract text, images, tables, metadata &amp; more &mdash; all 12 content types</p>
+        </header>
+
+        <!-- Upload Card -->
+        <section class="card upload-card" id="upload-section">
+            <div class="drop-zone" id="drop-zone">
+                <div class="upload-icon">
+                    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                </div>
+                <p class="drop-text">Drag &amp; drop your PDF here</p>
+                <p class="drop-subtext">or click to browse</p>
+            </div>
+            <!-- File input OUTSIDE the drop zone to avoid click issues -->
+            <input type="file" id="file-input" accept=".pdf" style="display:none;">
+
+            <!-- File info (hidden by default via inline style) -->
+            <div class="file-info" id="file-info" style="display:none;">
+                <div class="file-badge">
+                    <span class="file-icon">&#128206;</span>
+                    <span class="file-name" id="file-name"></span>
+                    <span class="file-size" id="file-size"></span>
+                    <button class="btn-remove" id="btn-remove" title="Remove file">&times;</button>
+                </div>
+            </div>
+
+            <!-- Password toggle -->
+            <details class="password-section">
+                <summary class="password-toggle">&#128274; PDF is password-protected?</summary>
+                <div class="password-field">
+                    <input type="password" id="password-input" placeholder="Enter PDF password..." autocomplete="off">
+                </div>
+            </details>
+
+            <!-- Convert button -->
+            <button class="btn-convert" id="btn-convert" disabled>
+                <span class="btn-text" id="btn-text">&#128640; Convert to Markdown</span>
+                <span class="btn-loader" id="btn-loader" style="display:none;">
+                    <span class="spinner"></span> Converting...
+                </span>
+            </button>
+
+            <!-- Error message -->
+            <div class="error-msg" id="error-msg" style="display:none;"></div>
+        </section>
+
+        <!-- Result Card (hidden by default) -->
+        <section class="card result-card" id="result-section" style="display:none;">
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab active" data-tab="preview" id="tab-preview">&#128065; Preview</button>
+                <button class="tab" data-tab="raw" id="tab-raw">&#128221; Raw Markdown</button>
+                <button class="tab" data-tab="meta" id="tab-meta">&#128202; Metadata</button>
+            </div>
+
+            <!-- Preview pane -->
+            <div class="tab-content active" id="pane-preview">
+                <div class="preview-container" id="preview-container"></div>
+            </div>
+
+            <!-- Raw Markdown pane -->
+            <div class="tab-content" id="pane-raw">
+                <pre class="raw-md" id="raw-md"></pre>
+            </div>
+
+            <!-- Metadata pane -->
+            <div class="tab-content" id="pane-meta">
+                <div class="meta-grid" id="meta-grid"></div>
+            </div>
+
+            <!-- Actions -->
+            <div class="result-actions">
+                <button class="btn-action" id="btn-copy">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                    Copy Markdown
+                </button>
+                <button class="btn-action btn-primary" id="btn-download">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Download .md
+                </button>
+                <button class="btn-action btn-ghost" id="btn-new">
+                    &#8635; Convert Another
+                </button>
+            </div>
+        </section>
+
+        <!-- Feature badges -->
+        <footer class="features">
+            <span class="badge">&#128221; Text</span>
+            <span class="badge">&#128292; Headings</span>
+            <span class="badge">&#128203; Lists</span>
+            <span class="badge">&#128279; URLs</span>
+            <span class="badge">&#128444; Images</span>
+            <span class="badge">&#128202; Tables</span>
+            <span class="badge">&#127912; Graphics</span>
+            <span class="badge">&#128208; Annotations</span>
+            <span class="badge">&#128278; Bookmarks</span>
+            <span class="badge">&#128290; Metadata</span>
+            <span class="badge">&#128206; Attachments</span>
+            <span class="badge">&#128274; Encryption</span>
+        </footer>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+
+</html>
