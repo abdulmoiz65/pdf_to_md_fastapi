@@ -12,3 +12,4 @@ class ConversionResponse(BaseModel):
     filename: str = ""
     metadata: dict[str, Any] = {}
     error: str = ""
+    image_base_url: str = ""

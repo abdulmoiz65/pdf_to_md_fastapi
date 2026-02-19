@@ -32,6 +32,8 @@
     var selectedFile = null;
     var markdownResult = "";
     var mdFilename = "output.md";
+    var imageBaseUrl = "";
+    var currentSessionId = "";
 
     // -- Show / hide helpers (use inline style) -------------------------
     function show(el) { if (el) el.style.display = ""; }
@@ -142,9 +144,16 @@
 
                 markdownResult = data.markdown;
                 mdFilename = data.filename || "output.md";
+                imageBaseUrl = data.image_base_url || "";
+
+                // Extract session ID from image_base_url for cleanup
+                if (imageBaseUrl) {
+                    var parts = imageBaseUrl.split("/");
+                    currentSessionId = parts[parts.length - 1];
+                }
 
                 // Render both panes simultaneously
-                previewPane.innerHTML = mdToHtml(markdownResult);
+                previewPane.innerHTML = mdToHtml(markdownResult, imageBaseUrl);
                 renderRawMd(markdownResult);
                 renderMeta(data.metadata);
 
@@ -183,22 +192,48 @@
     btnCopy.addEventListener("click", copyMarkdown);
     if (btnCopyInline) btnCopyInline.addEventListener("click", copyMarkdown);
 
-    // -- Download -------------------------------------------------------
+    // -- Download (ZIP) -------------------------------------------------
     btnDownload.addEventListener("click", function () {
-        var blob = new Blob([markdownResult], { type: "text/markdown;charset=utf-8" });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement("a");
-        a.href = url;
-        a.download = mdFilename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        toast("Download started!");
+        if (!selectedFile) {
+            toast("No file to download.");
+            return;
+        }
+
+        var form = new FormData();
+        form.append("file", selectedFile);
+        form.append("password", passwordInput.value || "");
+
+        toast("Preparing ZIP download…");
+
+        fetch("/api/download", { method: "POST", body: form })
+            .then(function (res) {
+                if (!res.ok) throw new Error("Download failed (" + res.status + ")");
+                return res.blob();
+            })
+            .then(function (blob) {
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement("a");
+                a.href = url;
+                var stem = (mdFilename || "output.md").replace(/\.md$/i, "");
+                a.download = stem + ".zip";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                toast("Download started!");
+            })
+            .catch(function (err) {
+                showError("Download error: " + err.message);
+            });
     });
 
     // -- Convert another ------------------------------------------------
     btnNew.addEventListener("click", function () {
+        // Clean up server-side temp files
+        if (currentSessionId) {
+            fetch("/api/cleanup/" + currentSessionId, { method: "DELETE" }).catch(function () { });
+        }
+
         hide(resultSection);
         containerEl.classList.remove("results-active");
         selectedFile = null;
@@ -206,6 +241,8 @@
         hide(fileInfo);
         btnConvert.disabled = true;
         markdownResult = "";
+        imageBaseUrl = "";
+        currentSessionId = "";
         passwordInput.value = "";
         uploadSection.scrollIntoView({ behavior: "smooth" });
     });
@@ -235,7 +272,7 @@
     }
 
     // -- Simple Markdown to HTML ----------------------------------------
-    function mdToHtml(md) {
+    function mdToHtml(md, baseUrl) {
         var html = md;
 
         // Remove YAML frontmatter
@@ -260,8 +297,15 @@
         html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
         html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
 
-        // Images
-        html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+        // Images — rewrite relative paths to use the API base URL
+        html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function (match, alt, src) {
+            // Rewrite relative image paths (e.g. images/page_1_img_1.jpg)
+            if (baseUrl && src.indexOf("images/") === 0) {
+                var filename = src.replace("images/", "");
+                src = baseUrl + "/" + filename;
+            }
+            return '<img src="' + src + '" alt="' + alt + '">';
+        });
 
         // Links
         html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');

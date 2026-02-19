@@ -1,8 +1,7 @@
-"""Image extraction from PDF pages — returns base64 data URIs."""
+"""Image extraction from PDF pages — saves images as files with relative-path references."""
 
 from __future__ import annotations
 
-import base64
 import io
 import os
 from pathlib import Path
@@ -17,7 +16,7 @@ except ImportError:
 
 
 class ImageExtractor:
-    """Extract embedded images from a PDF page and return as base64 data URIs."""
+    """Extract embedded images from a PDF page and save as individual files."""
 
     MAX_DIMS = (800, 1000)
 
@@ -40,15 +39,16 @@ class ImageExtractor:
     def extract_all(
         page: fitz.Page,
         page_num: int,
-        output_dir: str | None = None,
+        images_dir: str,
     ) -> list[tuple[str, float]]:
-        """Extract every image on *page*.
+        """Extract every image on *page* and save to *images_dir*.
 
         Returns a list of ``(markdown_reference, y_position)`` tuples.
-        Images are embedded as base64 data URIs so no filesystem writes are needed.
-        If *output_dir* is provided, images are also saved to disk.
+        Images are saved as individual files and referenced via relative paths.
         """
         results: list[tuple[str, float]] = []
+
+        os.makedirs(images_dir, exist_ok=True)
 
         for img_index, img_info in enumerate(page.get_images(full=True)):
             xref = img_info[0]
@@ -60,7 +60,6 @@ class ImageExtractor:
                     base_image = fitz.Pixmap(fitz.csRGB, base_image)
 
                 ext = "png" if base_image.alpha else "jpg"
-                mime = "image/png" if ext == "png" else "image/jpeg"
 
                 # Get raw image bytes
                 if ext == "png":
@@ -71,17 +70,11 @@ class ImageExtractor:
                 # Resize in memory
                 img_bytes = ImageExtractor._resize_bytes(img_bytes, ext)
 
-                # Encode as base64 data URI
-                b64 = base64.b64encode(img_bytes).decode("ascii")
-                data_uri = f"data:{mime};base64,{b64}"
-
-                # Optionally save to disk too
-                if output_dir:
-                    os.makedirs(output_dir, exist_ok=True)
-                    fname = f"page{page_num + 1}_img{img_index}.{ext}"
-                    img_path = os.path.join(output_dir, fname)
-                    with open(img_path, "wb") as f:
-                        f.write(img_bytes)
+                # Save image to disk
+                fname = f"page_{page_num + 1}_img_{img_index + 1}.{ext}"
+                img_path = os.path.join(images_dir, fname)
+                with open(img_path, "wb") as f:
+                    f.write(img_bytes)
 
                 # Determine vertical position
                 try:
@@ -90,7 +83,8 @@ class ImageExtractor:
                 except Exception:
                     y_pos = 0
 
-                md_ref = f"![Image page {page_num + 1}]({data_uri})"
+                # Use relative path for Markdown reference
+                md_ref = f"![Image page {page_num + 1}](images/{fname})"
                 results.append((md_ref, y_pos))
             except Exception:
                 continue
