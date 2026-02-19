@@ -82,27 +82,40 @@
 
         <!-- Result Card (hidden by default) -->
         <section class="card result-card" id="result-section" style="display:none;">
-            <!-- Tabs -->
-            <div class="tabs">
-                <button class="tab active" data-tab="preview" id="tab-preview">&#128065; Preview</button>
-                <button class="tab" data-tab="raw" id="tab-raw">&#128221; Raw Markdown</button>
-                <button class="tab" data-tab="meta" id="tab-meta">&#128202; Metadata</button>
+            <!-- Split Pane: Raw MD (left) + Preview (right) -->
+            <div class="split-pane" id="split-pane">
+                <!-- Left: Raw Markdown -->
+                <div class="pane pane-raw">
+                    <div class="pane-header">
+                        <span class="pane-label">&#128221; Raw Markdown</span>
+                        <button class="pane-btn" id="btn-copy-inline" title="Copy Markdown">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" />
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                        </button>
+                    </div>
+                    <pre class="raw-md" id="raw-md"></pre>
+                </div>
+
+                <!-- Vertical Divider -->
+                <div class="pane-divider"></div>
+
+                <!-- Right: Preview -->
+                <div class="pane pane-preview">
+                    <div class="pane-header">
+                        <span class="pane-label">&#128065; Preview</span>
+                    </div>
+                    <div class="preview-container" id="preview-container"></div>
+                </div>
             </div>
 
-            <!-- Preview pane -->
-            <div class="tab-content active" id="pane-preview">
-                <div class="preview-container" id="preview-container"></div>
-            </div>
-
-            <!-- Raw Markdown pane -->
-            <div class="tab-content" id="pane-raw">
-                <pre class="raw-md" id="raw-md"></pre>
-            </div>
-
-            <!-- Metadata pane -->
-            <div class="tab-content" id="pane-meta">
+            <!-- Metadata (collapsible) -->
+            <details class="meta-section" id="meta-section">
+                <summary class="meta-toggle">&#128202; Metadata</summary>
                 <div class="meta-grid" id="meta-grid"></div>
-            </div>
+            </details>
 
             <!-- Actions -->
             <div class="result-actions">

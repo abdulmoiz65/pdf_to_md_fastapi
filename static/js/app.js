@@ -1,5 +1,5 @@
 /* ===================================================================
-   PDF to Markdown Converter  |  Client-side logic
+   PDF to Markdown Converter  |  Client-side logic — Split Pane
    =================================================================== */
 
 (function () {
@@ -24,10 +24,10 @@
     var rawPane = document.getElementById("raw-md");
     var metaGrid = document.getElementById("meta-grid");
     var btnCopy = document.getElementById("btn-copy");
+    var btnCopyInline = document.getElementById("btn-copy-inline");
     var btnDownload = document.getElementById("btn-download");
     var btnNew = document.getElementById("btn-new");
-    var tabs = document.querySelectorAll(".tab");
-    var panes = document.querySelectorAll(".tab-content");
+    var containerEl = document.querySelector(".container");
 
     var selectedFile = null;
     var markdownResult = "";
@@ -107,6 +107,17 @@
     function showError(msg) { errorMsg.textContent = msg; show(errorMsg); }
     function hideError() { hide(errorMsg); }
 
+    // -- Render raw markdown with line numbers ---------------------------
+    function renderRawMd(md) {
+        // Split into lines and wrap each in a <span class="line">
+        var lines = md.split("\n");
+        var html = "";
+        for (var i = 0; i < lines.length; i++) {
+            html += '<span class="line">' + esc(lines[i]) + "</span>\n";
+        }
+        rawPane.innerHTML = html;
+    }
+
     // -- Convert --------------------------------------------------------
     btnConvert.addEventListener("click", function () {
         if (!selectedFile) return;
@@ -132,12 +143,13 @@
                 markdownResult = data.markdown;
                 mdFilename = data.filename || "output.md";
 
-                // Render preview
+                // Render both panes simultaneously
                 previewPane.innerHTML = mdToHtml(markdownResult);
-                rawPane.textContent = markdownResult;
+                renderRawMd(markdownResult);
                 renderMeta(data.metadata);
 
-                // Show result section
+                // Widen container and show result section
+                containerEl.classList.add("results-active");
                 show(resultSection);
                 resultSection.scrollIntoView({ behavior: "smooth", block: "start" });
             })
@@ -151,19 +163,8 @@
             });
     });
 
-    // -- Tabs -----------------------------------------------------------
-    for (var i = 0; i < tabs.length; i++) {
-        tabs[i].addEventListener("click", function () {
-            for (var j = 0; j < tabs.length; j++)  tabs[j].classList.remove("active");
-            for (var j = 0; j < panes.length; j++) panes[j].classList.remove("active");
-            this.classList.add("active");
-            var pane = document.getElementById("pane-" + this.getAttribute("data-tab"));
-            if (pane) pane.classList.add("active");
-        });
-    }
-
-    // -- Copy -----------------------------------------------------------
-    btnCopy.addEventListener("click", function () {
+    // -- Copy (both buttons) --------------------------------------------
+    function copyMarkdown() {
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(markdownResult).then(function () {
                 toast("Copied to clipboard!");
@@ -177,7 +178,10 @@
             document.body.removeChild(ta);
             toast("Copied to clipboard!");
         }
-    });
+    }
+
+    btnCopy.addEventListener("click", copyMarkdown);
+    if (btnCopyInline) btnCopyInline.addEventListener("click", copyMarkdown);
 
     // -- Download -------------------------------------------------------
     btnDownload.addEventListener("click", function () {
@@ -196,6 +200,7 @@
     // -- Convert another ------------------------------------------------
     btnNew.addEventListener("click", function () {
         hide(resultSection);
+        containerEl.classList.remove("results-active");
         selectedFile = null;
         fileInput.value = "";
         hide(fileInfo);

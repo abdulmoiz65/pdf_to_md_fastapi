@@ -9,6 +9,14 @@ class TableExtractor:
     """Detect and extract tables from a PDF page using PyMuPDF's built-in table finder."""
 
     @staticmethod
+    def _clean_cell(cell: str | None) -> str:
+        """Flatten multiline cell content to a single line for valid Markdown."""
+        if not cell:
+            return ""
+        # Replace newlines / carriage returns with a space, collapse whitespace
+        return " ".join(cell.split())
+
+    @staticmethod
     def _to_markdown(table_data: list[list[str]]) -> str:
         """Convert a 2-D list of cell strings into a Markdown table."""
         if not table_data or not table_data[0]:
@@ -22,11 +30,12 @@ class TableExtractor:
         sep = ["---"] * col_count
         body = normalised[1:] if len(normalised) > 1 else []
 
+        clean = TableExtractor._clean_cell
         lines: list[str] = []
-        lines.append("| " + " | ".join(c or "" for c in header) + " |")
+        lines.append("| " + " | ".join(clean(c) for c in header) + " |")
         lines.append("| " + " | ".join(sep) + " |")
         for row in body:
-            lines.append("| " + " | ".join(c or "" for c in row) + " |")
+            lines.append("| " + " | ".join(clean(c) for c in row) + " |")
         return "\n".join(lines)
 
     @staticmethod

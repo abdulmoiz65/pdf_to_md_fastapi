@@ -52,7 +52,7 @@ class PDFMetadataExtractor:
         """Return a YAML frontmatter block."""
         # Build a clean dict (drop empty values)
         clean: dict[str, Any] = {}
-        for key in ("title", "author", "subject", "creator", "creation_date", "modified_date", "pages", "encrypted"):
+        for key in ("title", "author", "subject", "creator", "pages", "encrypted"):
             val = meta.get(key)
             if val not in (None, ""):
                 clean[key] = val

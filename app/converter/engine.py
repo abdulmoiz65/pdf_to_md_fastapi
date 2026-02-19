@@ -98,15 +98,31 @@ def _process_page(
     for md_annot, y_pos in AnnotationExtractor.extract_all(page):
         elements.append((y_pos, "annotation", md_annot))
 
-    # --- Hyperlinks (deduplicate with text) ----------------------------
-    # We already converted bare URLs; hyperlinks add link annotations
-    # that may not appear as bare text.
+    # --- Hyperlinks (replace display text with markdown links) ----------
+    # PDF hyperlinks have both display text and a URL. The text extractor
+    # already captured the display text as plain text. Here we find that
+    # text in the elements and replace it with a proper [display](url).
     seen_urls: set[str] = set()
     for display, url, y_pos in URLExtractor.extract_hyperlinks(page):
-        if url not in seen_urls:
-            seen_urls.add(url)
-            # Only add if URL wasn't already in a text element
-            md_link = URLExtractor.markdown_url(display, url)
+        if url in seen_urls:
+            continue
+        seen_urls.add(url)
+        md_link = URLExtractor.markdown_url(display, url)
+
+        # Try to replace the display text inside existing text elements
+        replaced = False
+        for idx, (ey, etype, content) in enumerate(elements):
+            if etype != "text":
+                continue
+            # Check if the display text appears in this element
+            # (and it's not already a markdown link)
+            if display in content and f"[{display}](" not in content:
+                elements[idx] = (ey, etype, content.replace(display, md_link, 1))
+                replaced = True
+                break
+
+        # If display text wasn't found in any text element, add as new element
+        if not replaced:
             elements.append((y_pos, "link", md_link))
 
     # --- Drawings / horizontal rules -----------------------------------
@@ -184,6 +200,12 @@ def pdf_to_markdown(
             doc.close()
             raise PermissionError("PDF is password-protected. Please provide a password.")
 
+    # --- Fallback: stream-based open if page_count is 0 ---------------
+    if doc.page_count == 0:
+        doc.close()
+        pdf_bytes = Path(pdf_path).read_bytes()
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+
     # --- Metadata & frontmatter ---------------------------------------
     meta = PDFMetadataExtractor.extract(doc)
     result_parts: list[str] = [PDFMetadataExtractor.create_frontmatter(meta)]
@@ -194,6 +216,14 @@ def pdf_to_markdown(
         meta["bookmarks"] = toc
 
     # --- Pages --------------------------------------------------------
+    if doc.page_count == 0:
+        result_parts.append(
+            "\n> ⚠️ **This PDF appears to contain 0 extractable pages.**\n"
+            "> The file may use a non-standard format. Try opening it in "
+            "a PDF reader and using 'Print to PDF' or 'Save As' to create "
+            "a compatible version.\n"
+        )
+
     for page_num in range(doc.page_count):
         page = doc.load_page(page_num)
         result_parts.append(f"\n## 📄 Page {page_num + 1}\n")
