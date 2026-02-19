@@ -30,17 +30,22 @@ class TableExtractor:
         return "\n".join(lines)
 
     @staticmethod
-    def extract_all(page: fitz.Page) -> list[tuple[str, float]]:
-        """Return ``(markdown_table, y_position)`` for every table on the page."""
-        results: list[tuple[str, float]] = []
+    def extract_all(page: fitz.Page) -> list[tuple[str, float, fitz.Rect | None]]:
+        """Return ``(markdown_table, y_position, bbox)`` for every table on the page.
+
+        The *bbox* is a ``fitz.Rect`` covering the table area so callers can
+        suppress duplicate text blocks that fall within a table region.
+        """
+        results: list[tuple[str, float, fitz.Rect | None]] = []
         try:
             tabs = page.find_tables()
             for tab in tabs:
                 table_data = tab.extract()
                 md = TableExtractor._to_markdown(table_data)
                 if md:
-                    y_pos = tab.bbox[1] if hasattr(tab, "bbox") else 0
-                    results.append((md, y_pos))
+                    bbox = fitz.Rect(tab.bbox) if hasattr(tab, "bbox") else None
+                    y_pos = bbox.y0 if bbox else 0
+                    results.append((md, y_pos, bbox))
         except Exception:
             pass  # table detection is best-effort
         return results

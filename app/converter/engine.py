@@ -49,12 +49,26 @@ def _process_page(
     # ------------------------------------------------------------------
     elements: list[tuple[float, str, str]] = []
 
-    # --- Text blocks ---------------------------------------------------
+    # --- Tables (extracted first so we know which regions to skip) ------
+    table_rects: list[fitz.Rect] = []
+    for md_table, y_pos, bbox in TableExtractor.extract_all(page):
+        elements.append((y_pos, "table", md_table))
+        if bbox:
+            table_rects.append(bbox)
+
+    # --- Text blocks (skip text that falls inside a table region) ------
     blocks = page.get_text("dict", flags=fitz.TEXT_PRESERVE_WHITESPACE)["blocks"]
     for block in blocks:
         if block.get("type") != 0:
             continue
-        block_y = block.get("bbox", [0, 0, 0, 0])[1]
+        block_bbox = block.get("bbox", [0, 0, 0, 0])
+        block_rect = fitz.Rect(block_bbox)
+
+        # If this text block overlaps any detected table, skip it entirely
+        if any(block_rect.intersects(tr) for tr in table_rects):
+            continue
+
+        block_y = block_bbox[1]
         for line in block.get("lines", []):
             spans = line.get("spans", [])
             if not spans:
@@ -75,10 +89,6 @@ def _process_page(
 
             final = f"{heading_prefix}{line_text}"
             elements.append((block_y, "text", final))
-
-    # --- Tables --------------------------------------------------------
-    for md_table, y_pos in TableExtractor.extract_all(page):
-        elements.append((y_pos, "table", md_table))
 
     # --- Images --------------------------------------------------------
     for md_ref, y_pos in ImageExtractor.extract_all(page, page_num, images_dir):
@@ -178,10 +188,10 @@ def pdf_to_markdown(
     meta = PDFMetadataExtractor.extract(doc)
     result_parts: list[str] = [PDFMetadataExtractor.create_frontmatter(meta)]
 
-    # --- Bookmarks / TOC ----------------------------------------------
-    toc = BookmarkExtractor.extract(doc)
+    # --- Bookmarks (stored in metadata only, not in Markdown body) ------
+    toc = BookmarkExtractor.extract_raw(doc)
     if toc:
-        result_parts.append(toc + "\n")
+        meta["bookmarks"] = toc
 
     # --- Pages --------------------------------------------------------
     for page_num in range(doc.page_count):
